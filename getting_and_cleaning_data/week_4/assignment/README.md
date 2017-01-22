@@ -22,7 +22,7 @@ datasets) when run.
 * `har.loadData`: Loads the data from the zip file and builds a properly
   labeled data frame.
   For detailed information about the labels and the units of the data, see the
-  provided [CookBook.md][./CookBook.md].
+  provided [CookBook.md](./CookBook.md).
 
 ### Exposed Datasets
 
@@ -43,7 +43,7 @@ datasets) when run.
 
 ## Code Book
 
-Please check the [code book][CodeBook.md] for detailed information about how the
+Please check the [code book](./CodeBook.md) for detailed information about how the
 datasets are build from the raw data.
 
 [jhu-ds-coursera]: https://www.coursera.org/specializations/jhu-data-science
