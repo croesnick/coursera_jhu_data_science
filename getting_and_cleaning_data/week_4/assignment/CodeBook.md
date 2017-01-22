@@ -1,9 +1,10 @@
 # Code Book
 
-This document described how the datasets
+This document describes how the datasets
 - `har.full`,
 - `har.mean_and_std`, and
 - `har.tidy`
+
 are build up from the original UCI HAR dataset.
 
 ## Source Files
