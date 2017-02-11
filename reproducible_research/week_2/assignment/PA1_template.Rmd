@@ -1,12 +1,11 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
 output: 
-  html_document:
-    keep_md: true
+  html_document: 
+    keep_md: true 
 ---
 
 ```{r setoptions, echo = T, results = 'hide'}
-library(knitr)
 opts_chunk$set(messages = F, warning = F)
 ```
 
@@ -15,8 +14,7 @@ opts_chunk$set(messages = F, warning = F)
 Load some base packages we need for the analysis, and load the dataset as a table.
 Notice that we keep the data as is, i.e., we don't perform any postprocessing at this point.
 
-```{r, results = "hide"}
-library(plotly)
+```{r setup, include = F}
 library(Hmisc)
 library(dplyr)
 library(chron)
@@ -33,12 +31,11 @@ steps <- data %>% group_by(date) %>% summarize(steps_total = sum(steps))
 steps.mean <- mean(steps$steps_total, na.rm = T)
 steps.median <- median(steps$steps_total, na.rm = T)
 
-plot <- ggplot(data = steps, aes(steps_total)) +
+ggplot(data = steps, aes(steps_total)) +
   geom_histogram() +
   labs(title = "Total number of steps taken each day",
        x = "Total steps",
        y = "Frequency")
-ggplotly(plot)
 ```
 
 On average, `r steps.mean` steps are taken each day, while the median of steps is `r steps.median`.
@@ -49,12 +46,11 @@ We group the data by interval and compute the mean within each interval group.
 
 ```{r}
 daily_activity <- data %>% group_by(interval) %>% summarize(average = mean(steps, na.rm = T))
-plot <- ggplot(data = daily_activity, aes(interval, average)) +
+ggplot(data = daily_activity, aes(interval, average)) +
   geom_line() +
   labs(title = "Average Daily Activity Patern",
        x = "Interval",
        y = "Average Steps")
-ggplotly(plot)
 ```
 
 On average across all the days in the dataset, the `r (daily_activity %>% arrange(-average))$interval[1]`th interval contains the maximum number of steps.
@@ -83,20 +79,18 @@ data.steps_by_date <- tapply(data.imputed$steps, data.imputed$date, sum)
 data.steps_by_date.mean <- mean(data.steps_by_date)
 data.steps_by_date.median <- median(data.steps_by_date)
 
-plot <- qplot(data.steps_by_date,
-              main = "Total number of steps taken each day",
-              xlab = 'Total steps',
-              ylab = 'Frequency')
-ggplotly(plot)
+qplot(data.steps_by_date,
+      main = "Total number of steps taken each day",
+      xlab = 'Total steps',
+      ylab = 'Frequency')
 ```
 
 Let's compare the mean and median of the original data with those of the imputed data:
 
 ```{r}
-comparison <- data.frame(Original = c(steps.mean, steps.median),
-                         Imputed = c(data.steps_by_date.mean, data.steps_by_date.median),
-                         row.names = c("Mean", "Median"))
-kable(comparison, caption = "Comparison of original and imputed data")
+data.frame(Original = c(steps.mean, steps.median),
+           Imputed = c(data.steps_by_date.mean, data.steps_by_date.median),
+           row.names = c("Mean", "Median"))
 ```
 
 What we observe is that there are numerous periods each day without any collected data.
@@ -111,11 +105,10 @@ data.wday <- data.imputed %>% mutate(day_type = as.factor(ifelse(is.weekend(as.D
 data.wday.activity <- data.wday %>%
   group_by(interval, day_type) %>%
   mutate(average = mean(steps))
-plot <- ggplot(data = data.wday.activity, aes(interval, average)) +
+ggplot(data = data.wday.activity, aes(interval, average)) +
   geom_line() +
   facet_wrap(~day_type, ncol = 1) + 
   labs(title = "Average Daily Activity Patern",
        x = "Interval",
        y = "Average Steps")
-ggplotly(plot)
 ```
