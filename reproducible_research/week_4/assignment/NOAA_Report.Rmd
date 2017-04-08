@@ -1,0 +1,213 @@
+---
+title: "TODO"
+output: 
+  html_document: 
+    keep_md: true
+    toc: true
+---
+
+<Synopsis: Summarize data in less than 10 sentences>
+
+Your data analysis must address the following questions:
+
+- Across the United States, which types of events (as indicated in the 𝙴𝚅𝚃𝚈𝙿𝙴 variable) are most harmful with respect to population health?
+- Across the United States, which types of events have the greatest economic consequences?
+
+Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
+
+Requirements to the report:
+- You may have other sections in your analysis, but Data Processing and Results are required.
+- The analysis document must have at least one figure containing a plot.
+- Your analysis must have no more than three figures. Figures may have multiple plots in them (i.e. panel plots), but there cannot be more than three figures total.
+- You must show all your code for the work in your analysis document. This may make the document a bit verbose, but that is okay. In general, you should ensure that 𝚎𝚌𝚑𝚘 = 𝚃𝚁𝚄𝙴 for every code chunk (this is the default setting in knitr).
+
+# Data Processing
+
+```{r init}
+library(stringi)
+library(dplyr)
+library(ggplot2)
+
+noaa.files.remote <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+noaa.files.local <- "StormData.csv.bz2"
+```
+
+This section describes how the data is loaded into R and processed for analysis.
+We start from the raw data which the script will download from `r noaa.files.remote`
+and store it locally as `r noaa.files.local` unless this file already exists.
+
+```{r setup}
+noaa.download <- function(remote, local) {
+  downloadRawData <- function(url, target) {
+    download.file(url, target, method = "curl")
+  }
+
+  if (!file.exists(local)) {
+		downloadRawData(remote, local)
+	}
+}
+
+noaa.download(noaa.files.remote, noaa.files.local)
+```
+
+We load the data directly from the bz2 compressed file.
+
+```{r loadData, cache = T}
+noaa.raw <- read.csv(file = noaa.files.local,
+                     header = T,
+                     sep = ",",
+                     stringsAsFactors = F)
+```
+
+Got the data, it becomes clear that it needs to be preprocessed a bit before we can use it.
+First, the _event type_ is not properly upcased (e.g., `Beach Erosion` vs. `BEACH EROSION`, `blowing snow` vs `BLOWING SNOW`) ,
+so we need to fix that.
+Besides these easy-to-fix imprecisions, some event types are also misspelled (e.g., `AVALANCHE` vs. `AVALACE`).
+Since these misspelled event types does not seem to contribute much to the overall data, we decide to leave them as-is.
+
+Second, the expenses for property and crop damages are split in amounts and their magnitude.
+We denormalize and combine them as a preparation for the last analysis in this section.
+
+```{r preprocessData}
+convertExpense <- function(letter) {
+  letter.normal <- toupper(stri_trim_both(letter))
+  ifelse(letter.normal == "K",
+         10^3,
+         ifelse(letter.normal == "M",
+                10^6,
+                ifelse(letter.normal == "B",
+                       10^9,
+                       1)
+                )
+         )
+}
+
+abbreviateExpense <- function(amount) {
+  abbreviate <- function(amount, letter) {
+    paste(round(amount, 1), letter, sep = " ")
+  }
+  
+  amount.abs = abs(amount)
+  
+  ifelse(amount.abs < 10^3,
+         paste(amount),
+         ifelse(amount.abs < 10^6,
+                abbreviate(amount / 10^3, "K"),
+                ifelse(amount.abs < 10^9,
+                       abbreviate(amount / 10^6, "M"),
+                       ifelse(amount.abs < 10^12,
+                              abbreviate(amount / 10^9, "B"),
+                              abbreviate(amount / 10^12, "T"))
+                       )
+                )
+         )
+}
+
+noaa.pre <- noaa.raw
+noaa.pre <- noaa.pre %>%
+  mutate(EVTYPE = toupper(stri_trim_both(EVTYPE)),
+         PROPDMG_DECIPERED = PROPDMG * convertExpense(PROPDMGEXP),
+         CROPDMG_DECIPERED = CROPDMG * convertExpense(CROPDMGEXP))
+```
+
+## Natural Events causing Injuries
+
+What natural events cause the most injuries?
+To answer this questiom, we will explicitly look at the _total_ number of people injured by a natural event.
+Only the topmost events are of interest for us, so we will discard any event with less then 350 people.
+From this data, we then sort it by the total number of injured people in descending order. 
+
+```{r injuries}
+noaa.injuries <- noaa.pre %>%
+  group_by(EVTYPE) %>%
+  mutate(INJURIES_TOTAL = sum(INJURIES)) %>%
+  filter(INJURIES > 0 & INJURIES_TOTAL >= 350)
+
+# Compute the total number of injured people
+noaa.injuries.totals <- noaa.injuries %>%
+  summarize(INJURIES_TOTAL = abbreviateExpense(sum(INJURIES)))
+
+# Order the events descendingly by the total number of injured people
+noaa.injuries$EVTYPE <- factor(noaa.injuries$EVTYPE, levels = unique(noaa.injuries$EVTYPE[order(noaa.injuries$INJURIES_TOTAL)]))
+
+```
+
+To gain a better understanding of these most impactful events, we plot the percentiles in addition to the total numbers.
+
+```{r injuriesPlot, fig.width = 8, fig.height = 6}
+ggplot(data = noaa.injuries, aes(x = EVTYPE, y = INJURIES)) +
+  geom_boxplot(alpha = 0.3) +
+  geom_text(aes(EVTYPE, y = 3 * 10^3, label = INJURIES_TOTAL), data = noaa.injuries.totals) +
+  scale_y_log10() +
+  coord_flip() +
+  labs(title = "Natural Events causing most Injuries",
+       x = "Event type",
+       y = "No. injuries (log scale)") +
+  theme_bw()
+```
+
+
+
+## Natural Events causing Fatalities
+
+```{r fatalities}
+#, fig.width = 6
+noaa.fatalities <- noaa.pre %>%
+  group_by(EVTYPE) %>%
+  mutate(FATALITIES_TOTAL = sum(FATALITIES)) %>%
+  filter(FATALITIES > 0 & FATALITIES_TOTAL >= 90)
+
+# ...
+noaa.faalitiesPlot, fig.width = 8, fig.height = 6}
+# ...
+ggplot(data = noaa.fatalities.totals <- noaa.fatalities %>% summarize(FATALITIES_TOTAL = abbreviateExpense(sum(FATALITIES)))
+
+# Reorder fa)cors, descending by total number of fatalities
+noaa.fatalities$EVTYPE <- factor(noaa.fatalities$EVTYPE,
+                                 levels = unique(noaa.fatalities$EVTYPE[order(noaa.fatalities$FATALITIES_TOTAL)]))
+
+# ...
+noaa.fatalities, aes(x = EVTYPE, y = FATALITIES)) +
+  geom_boxplot(alpha = 0.3) +
+  geom_text(aes(EVTYPE, y = 1000, label = FATALITIES_TOTAL), data = noaa.fatalities.totals) +
+  scale_y_log10() +
+  coord_flip() +
+  labs(title = "Natural Events causing most Fatalities",
+       x = "Event type",
+       y = "No. fatalities (log scale)") +
+  theme_bw()
+```
+
+## Natural Events with Economic Impact
+
+```{r damageExpenses}
+noaa.expenses <- noaa.pre %>%
+  group_by(EVTYPE) %>%
+  mutate(EXPENSES = PROPDMG_DECIPERED + CROPDMG_DECIPERED,
+         EXPENSES_TOTAL = sum(PROPDMG_DECIPERED + CROPDMG_DECIPERED)) %>%
+  filter(EXPENSES > 0 & EXPENSES_TOTAL > 1.5 * 10^9)
+```
+
+```{r damageExpensesPlot, fig.width = 8, fig.height = 6}
+noaa.expenses.totals <- noaa.expenses %>%
+  summarize(E
+ ENSES_TOTAL = abbreviateExpense(sum(PROPDMG_DECIPERED + CROPDMG_DECIPERED)))
+
+# ...
+noaa.expenReorder factors, descending by total number of damage expenses$EVTYPE <- factor(noaa.expenses$EVTYPE, levels = unique(noaa.expenses$EVTYPE[order(noaa.expenses$EXPENSES_TOTAL)]))
+# ...
+ggplot(d
+atPlot data: boxplots for quantiles, and annotate the total number of damage expenses noaa.expenses, aes(x = EVTYPE, y = EXPENSES)) +
+  geom_boxplot(alpha = 0.2) +
+  geom_text(aes(EVTYPE, y = 10^12, label = EXPENSES_TOTAL), data = noaa.expenses.totals) +
+  scale_y_log10() +
+  coord_flip() +
+  labs(title = "Natural Events with Topmost Economic Impact",
+       x = "Event type",
+       y = "Damage expenses in $") +
+  theme_bw()
+```
+
+# Results
+
+There should be a section titled Results in which your results are presented.

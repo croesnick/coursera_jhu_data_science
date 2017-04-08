@@ -1,0 +1,43 @@
+First Shiny App Pitch
+========================================================
+author: Carsten Rösnick-Neugebauer
+date: April 8th, 2017
+autosize: true
+
+Motivation
+========================================================
+
+Let's create our first interactive Shiny app!
+
+
+Planning: Steps to do
+========================================================
+
+- Find a suitable dataset
+- Basic exploratory analysis
+- Outline the Shiny app
+- Build it!
+- Share it with the course members
+
+The dataset
+========================================================
+
+The Loblolly pine tree growth dataset was chosen:
+
+```{r}
+library(datasets)
+data("Loblolly")
+head(Loblolly)
+```
+
+Resulting plot
+========================================================
+
+The center of the final Shiny app will be a plot of the following format:
+
+```{r fig.width=20}
+library(ggplot2)
+library(datasets)
+data("Loblolly") 
+ggplot(data = Loblolly, aes(x = age, y = height, group = Seed, colour = Seed)) + geom_line() + geom_point()
+```
